@@ -1,7 +1,7 @@
 ---
 title: "Statistical assignment 3"
-author: "[add your name here] [add your candidate number here - mandatory]"
-date: "[add date here]"
+author: "Andrew Bosbery Candidate Number: 081949"
+date: "13/02/2020"
 output: github_document
 ---
 
@@ -33,7 +33,7 @@ library(data.table)
 
 files <- dir(
              # Select the folder where the files are stored.
-             "[add your path here]",
+             "C:/Users/Andrew/Documents/University/Year 2/Term 2/Data Analysis 3/Project/data/UKDA-6614-tab/tab",
              # Tell R which pattern you want present in the files it will display.
              pattern = "indresp",
              # We want this process to repeat through the entire folder.
@@ -74,7 +74,9 @@ Now we have got the data from all 7 waves in the same data frame **all7** in the
 
 ```{r}
 Long <- all7 %>%
-  ...
+   gather(a_memorig:g_vote6 , key = "variable", value = "value") %>%
+   separate(variable, into = c("wave", "variable"), sep = "_", extra = "merge") %>%
+   spread(key = variable, value = value)
 Long
 ```
 
@@ -84,14 +86,27 @@ Now we want to filter the data keeping only respondents from the original UKHLS 
 
 ```{r}
 Long <- Long %>%
-        filter(...) %>%
-        mutate(sex_dv = ...) %>%
-        mutate(vote6 = ...)
+        filter(memorig == 1) %>%
+        mutate(sex_dv = ifelse(sex_dv == 1, "Male", 
+                               ifelse(sex_dv == 2, "Female", NA_character_)
+                               )) %>%
+        mutate(vote6 = case_when(
+          vote6 < 0 ~ NA_integer_,
+          vote6 > 0 ~ vote6
+        ))
 
-Long %>%
-        ...
-Long %>%
-        ...
+Long
+
+Long_Sex <- Long %>%
+        count(sex_dv)
+
+Long_Sex
+        
+        
+Long_vote <- Long %>%
+        count(vote6)
+
+Long_vote
 
 ```
 
@@ -101,7 +116,12 @@ Political interest is an ordinal variable, but we will treat it as interval and 
 
 ```{r}
 meanVote6 <- Long %>%
-        ...
+        filter(!is.na(sex_dv)) %>%
+        filter(!is.na(vote6)) %>%
+        group_by(sex_dv, wave) %>%
+        summarise(
+                meanvote = mean(vote6, na.rm = TRUE)
+        )
         
 meanVote6
 ```
@@ -120,8 +140,12 @@ In the cells of this table you should have mean political interest by sex and wa
 Write a short interpretation of your findings.
 
 ```{r}
-meanVote6 %>%
-        ...
+VoteWave <- meanVote6 %>%
+        separate(wave, into = c("a", "b", "c", "d", "e", "f", "g")) %>%
+        spread(key = "a", value = "meanvote")
+
+VoteWave
+        
 ```
 
 ## Estimate stability of political interest (30 points)
@@ -147,6 +171,54 @@ Write the R code that does the following.
 5. Write a short interpretation of your findings.
 
 ```{r}
-...
+LongDelta <- Long %>%
+        group_by(pidp) %>%
+        mutate(NumWave = length(wave)) %>%
+        filter(NumWave == 7) %>%
+        filter(!is.na(vote6)) %>%
+        filter(!is.na(sex_dv))
+        
+
+LongDelta
+
+Delta <- LongDelta %>%
+        group_by(pidp) %>%
+        summarise(Delta = sum(abs(vote6[wave == "a"] - vote6[wave == "b"]), abs(vote6[wave == "b"] - vote6[wave == "c"]), abs(vote6[wave == "c"] - vote6[wave == "d"]), abs(vote6[wave == "d"] - vote6[wave == "e"]), abs(vote6[wave == "e"] - vote6[wave == "f"]), abs(vote6[wave == "f"] - vote6[wave == "g"])))
+        
+        
+Delta  
+
+FullDelta <- LongDelta %>%
+        left_join(Delta, by = "pidp") 
+        
+
+FullDelta
+
+AvgDelta <- FullDelta %>%
+        group_by(sex_dv) %>%
+        summarise(AvgDelta =
+                          mean(Delta, na.rm = TRUE))
+
+DeltaW1 <- FullDelta %>%
+        group_by(age_dv) %>%
+        summarise(AvgDltaAge =
+                          mean(Delta[wave == "a"]))
+
+
+        
+AvgDelta  
+
+DeltaW1
+        
+scatter.smooth(DeltaW1,
+               xlab = "Average Delta",
+               ylab = "Age (Years)",
+               main = "Change in Political Interest with Age")
+
 
 ```
+
+
+From the graph we can see that from the age 50 and above there is a slight increase in the amount of people changing their political interest. Though this graph only shows there was a change and not whether it was an increase in interest or a decrease some information can be inferred. For example it suggests that some level of interaction with politics over the course of the first 30-35 years of a persons life changes their interest in politics. If there is, on average, a decrease in political interest than this suggests that as people get older they become disillusioned with politics; this means that they lose trust in politics as promises are not kept. If there is an increase in political interest it could be that as peopel get older they have more free time as they retire or earn more an so need to work less. This would allow them to take time to engage in politics and take part in it by, for example, joining a political party. 
+
+There was no sihnificant difference between the average change in political interest for males and females. This suggests that there are few factors, or factors that are there have little effect between men and women when it comes to politics. This could mean that ideas stated above are not gender specific and that men and women are both effected in similar ways over their life. On the other hand we do not no whether the changes in political interest are positive or negative. This could mean that women become more interested in politics with age and men less interested or vice versa. Since the graph does not provide this info it would be something to remember when drawing conclusions from this graph 
